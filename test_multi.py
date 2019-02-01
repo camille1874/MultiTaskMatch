@@ -1,6 +1,6 @@
 import tensorflow as tf
 import numpy as np
-from multi_model import  Transformer
+from multi_model_v1 import  Transformer
 from data_util import load_data_predict,load_data_predict_y,load_final_test_data,create_vocabulary
 from tflearn.data_utils import pad_sequences #to_categorical
 import os
@@ -82,7 +82,7 @@ def main(_):
         number_of_training_data=len(testX2);print("number_of_training_data:",number_of_training_data)
         batch_x1, batch_x2, _, batch_features = compare_test_data.next_batch(batch_size=number_of_training_data)
         predict_target_file_f = codecs.open(FLAGS.predict_target_file, 'w', 'utf-8')
-        logits=sess.run(model.return_logtis,feed_dict={model.input_x:testX2,model.input_y_label:testY2,model.dropout_keep_prob:1, model.x1:batch_x1, model.x2: batch_x2, model.features:batch_features}) #logits:[batch_size,self.num_classes]
+        logits=sess.run(model.return_logits,feed_dict={model.input_x:testX2,model.input_y_label:testY2,model.dropout_keep_prob:1, model.x1:batch_x1, model.x2: batch_x2, model.features:batch_features}) #logits:[batch_size,self.num_classes]
        
         answers = {}
         MAP, MRR = 0, 0

@@ -46,17 +46,20 @@ class Transformer(BaseClass):
 
         self.instantiate_weights()
         self.logits = self.inference()
-        self.logits = tf.layers.dense(tf.concat([self.logits, self.get_compare_logits()], 1), units=self.num_classes) #logits shape:[batch_size,self.num_classes]
-        self.return_logtis = tf.nn.softmax(self.logits)
+        #self.logits = tf.layers.dense(tf.concat([self.logits, self.get_compare_logits()], 1), units=self.num_classes) #logits shape:[batch_size,self.num_classes]
+        #self.return_logtis = tf.nn.softmax(self.logits)
+        #self.predictions = tf.argmax(self.logits, axis=1, name="predictions")
+        self.compare_logits = self.get_compare_logits()
+        self.return_logits = tf.nn.softmax(self.logits + self.compare_logits)
+        self.predictions = tf.argmax(self.return_logits, axis=1, name="predictions")
 
-        self.predictions = tf.argmax(self.logits, axis=1, name="predictions")
         correct_prediction = tf.equal(tf.cast(self.predictions, tf.int32),self.input_y_label)
         self.accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32), name="Accuracy")  # shape=()
         
  
         if self.is_training is False:# if it is not training, then no need to calculate loss and back-propagation.
             return
-        self.loss_val = self.loss()
+        self.loss_val = self.loss() + self.compare_loss()
         self.train_op = self.train()
 
     def get_compare_logits(self):  
@@ -172,18 +175,18 @@ class Transformer(BaseClass):
         LI_1, LO_1, RI_1, RO_1 = CNN_layer(variable_scope="CNN-1", x1=x1_expanded, x2=x2_expanded, d=self.embed_size)
         sims = [cos_sim(LO_0, RO_0), cos_sim(LO_1, RO_1)] 
 
-        #with tf.variable_scope("output-layer"):
-        #    output_features = tf.concat([self.features, tf.stack(sims, axis=1)], axis=1, name="output_features")
+        with tf.variable_scope("output-layer"):
+            output_features = tf.concat([self.features, tf.stack(sims, axis=1)], axis=1, name="output_features")
 
-        #    estimation = tf.contrib.layers.fully_connected(
-        #        inputs=output_features,
-        #        num_outputs=self.num_classes,
-        #        activation_fn=None,
-        #        weights_initializer=tf.contrib.layers.xavier_initializer(),
-        #        weights_regularizer=tf.contrib.layers.l2_regularizer(scale=self.l2_reg),
-        #        biases_initializer=tf.constant_initializer(1e-04),
-        #        scope="FC"
-        #    )
+            estimation = tf.contrib.layers.fully_connected(
+                inputs=output_features,
+                num_outputs=self.num_classes,
+                activation_fn=None,
+                weights_initializer=tf.contrib.layers.xavier_initializer(),
+                weights_regularizer=tf.contrib.layers.l2_regularizer(scale=self.l2_reg),
+                biases_initializer=tf.constant_initializer(1e-04),
+                scope="FC"
+            )
 
         ##self.prediction = tf.contrib.layers.softmax(estimation)[:, 1]
 
@@ -191,9 +194,9 @@ class Transformer(BaseClass):
         ##    tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=estimation, labels=self.input_y_label)),
         ##    tf.reduce_sum(tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES)), name="cost")
         ##return cost
-        #return estimation
-        output_features = tf.concat([self.features, tf.stack(sims, axis=1)], axis=1, name="output_features")
-        return output_features
+        return estimation
+        #output_features = tf.concat([self.features, tf.stack(sims, axis=1)], axis=1, name="output_features")
+        #return output_features
 
     def inference(self):
         input_x_embeded = tf.nn.embedding_lookup(self.Embedding,self.input_x)  #[None,sequence_length, embed_size]
@@ -220,6 +223,10 @@ class Transformer(BaseClass):
             loss = loss + l2_losses
         return loss
 
+    def compare_loss(self):
+        with tf.name_scope("compare_loss"):
+            losses = tf.add(tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=self.compare_logits, labels=self.input_y_label)), tf.reduce_sum(tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES))) 
+        return losses
 
     def train(self):
         learning_rate = tf.train.exponential_decay(self.learning_rate, self.global_step, self.decay_steps,self.decay_rate, staircase=True)

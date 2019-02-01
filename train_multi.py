@@ -2,7 +2,7 @@
 import sys
 import tensorflow as tf
 import numpy as np
-from multi_model import  Transformer
+from multi_model_v1 import  Transformer
 from data_util import load_data_multilabel_new,create_vocabulary
 from preprocess_compare import Word2Vec, WikiQA, MSRP
 from tflearn.data_utils import to_categorical, pad_sequences

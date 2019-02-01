@@ -230,7 +230,7 @@ class Transformer(BaseClass):
 
     def instantiate_weights(self):
         with tf.device('/cpu:0'), tf.variable_scope("embedding_projection"):
-            self.Embedding = tf.Variable(tf.constant(0.0, shape=[self.vocab_size, self.embed_size]),trainable=True, name="Embedding")
+            self.Embedding = tf.Variable(tf.constant(0.0, shape=[self.vocab_size, self.embed_size]),trainable=False, name="Embedding")
             self.embedding_placeholder = tf.placeholder(tf.float32, shape=[self.vocab_size, self.embed_size])
             self.embedding_init = self.Embedding.assign(self.embedding_placeholder)
             self.W_projection = tf.get_variable("W_projection", shape=[self.sequence_length*self.d_model, self.num_classes],initializer=self.initializer)  # [embed_size,label_size]

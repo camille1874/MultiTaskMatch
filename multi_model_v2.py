@@ -43,6 +43,7 @@ class TextCNN(object):
         self.decay_steps, self.decay_rate = decay_steps, decay_rate
 
         self.instantiate_weights()
+        #self.logits = self.inference()
         self.logits = tf.layers.dense(tf.concat([self.inference(), self.get_compare_logits()], 1), units=self.num_classes)
         self.return_logits = tf.nn.softmax(self.logits)
         self.predictions = tf.argmax(self.logits, axis=1, name="predictions")

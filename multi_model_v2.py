@@ -3,16 +3,12 @@ import tensorflow as tf
 import numpy as np
 import random
 import copy
-from a2_base_model import BaseClass
-from a2_encoder import Encoder
 import os
-class Transformer(BaseClass):
+class TextCNN(object):
     def __init__(self, num_classes, learning_rate, batch_size, decay_steps, decay_rate, sequence_length,
-                 vocab_size, embed_size,d_model,d_k,d_v,h,num_layer,is_training,num_features, di=50, s=40, w=4,l2_reg=0.0004,
-                 initializer=tf.random_normal_initializer(stddev=0.1),clip_gradients=5.0,l2_lambda=0.0001,use_residual_conn=False):
-        """init all hyperparameter here"""
-        super(Transformer, self).__init__(d_model, d_k, d_v, sequence_length, h, batch_size, num_layer=num_layer) #init some fields by using parent class.
-
+                 vocab_size, embed_size,d_model,filter_sizes, num_filters,is_training,num_features, di=50, s=40, w=4,l2_reg=0.0004,
+                 initializer=tf.random_normal_initializer(stddev=0.1),clip_gradients=5.0,l2_lambda=0.0001):
+        self.batch_size = batch_size
         self.num_classes = num_classes
         self.sequence_length = sequence_length
         self.vocab_size = vocab_size
@@ -22,7 +18,10 @@ class Transformer(BaseClass):
         self.initializer = initializer
         self.clip_gradients=clip_gradients
         self.l2_lambda=l2_lambda
-
+        self.d_model = d_model
+        self.filter_sizes = filter_sizes
+        self.num_filters = num_filters
+        self.embedding_size = embed_size
         self.is_training=is_training #self.is_training=tf.placeholder(tf.bool,name="is_training") #tf.bool #is_training
         self.input_x = tf.placeholder(tf.int32, [self.batch_size, self.sequence_length], name="input_x")                 #x  batch_size
         self.input_y_label = tf.placeholder(tf.int32, [self.batch_size], name="input_y_label")
@@ -42,16 +41,11 @@ class Transformer(BaseClass):
         self.epoch_step = tf.Variable(0, trainable=False, name="Epoch_Step")
         self.epoch_increment = tf.assign(self.epoch_step, tf.add(self.epoch_step, tf.constant(1)))
         self.decay_steps, self.decay_rate = decay_steps, decay_rate
-        self.use_residual_conn=use_residual_conn
 
         self.instantiate_weights()
-        self.logits = self.inference()
-        #self.logits = tf.layers.dense(tf.concat([self.logits, self.get_compare_logits()], 1), units=self.num_classes) #logits shape:[batch_size,self.num_classes]
-        #self.return_logtis = tf.nn.softmax(self.logits)
-        #self.predictions = tf.argmax(self.logits, axis=1, name="predictions")
-        self.compare_logits = self.get_compare_logits()
-        self.return_logits = tf.nn.softmax(self.logits) + tf.nn.softmax(self.compare_logits)
-        self.predictions = tf.argmax(self.return_logits, axis=1, name="predictions")
+        self.logits = tf.layers.dense(tf.concat([self.inference(), self.get_compare_logits()], 1), units=self.num_classes)
+        self.return_logits = tf.nn.softmax(self.logits)
+        self.predictions = tf.argmax(self.logits, axis=1, name="predictions")
 
         correct_prediction = tf.equal(tf.cast(self.predictions, tf.int32),self.input_y_label)
         self.accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32), name="Accuracy")  # shape=()
@@ -59,7 +53,7 @@ class Transformer(BaseClass):
  
         if self.is_training is False:# if it is not training, then no need to calculate loss and back-propagation.
             return
-        self.loss_val = self.loss() + self.compare_loss()
+        self.loss_val = self.loss()
         self.train_op = self.train()
 
     def get_compare_logits(self):  
@@ -175,25 +169,6 @@ class Transformer(BaseClass):
         LI_1, LO_1, RI_1, RO_1 = CNN_layer(variable_scope="CNN-1", x1=x1_expanded, x2=x2_expanded, d=self.embed_size)
         sims = [cos_sim(LO_0, RO_0), cos_sim(LO_1, RO_1)] 
 
-        #with tf.variable_scope("output-layer"):
-        #    output_features = tf.concat([self.features, tf.stack(sims, axis=1)], axis=1, name="output_features")
-
-        #    estimation = tf.contrib.layers.fully_connected(
-        #        inputs=output_features,
-        #        num_outputs=self.num_classes,
-        #        activation_fn=None,
-        #        weights_initializer=tf.contrib.layers.xavier_initializer(),
-        #        weights_regularizer=tf.contrib.layers.l2_regularizer(scale=self.l2_reg),
-        #        biases_initializer=tf.constant_initializer(1e-04),
-        #        scope="FC"
-        #    )
-
-        ##self.prediction = tf.contrib.layers.softmax(estimation)[:, 1]
-
-        ##cost = tf.add(
-        ##    tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=estimation, labels=self.input_y_label)),
-        ##    tf.reduce_sum(tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES)), name="cost")
-        ##return cost
         estimation = tf.layers.dense(tf.stack(sims, axis=1), units=self.num_classes)
         return estimation
         #output_features = tf.concat([self.features, tf.stack(sims, axis=1)], axis=1, name="output_features")
@@ -201,16 +176,43 @@ class Transformer(BaseClass):
 
     def inference(self):
         input_x_embeded = tf.nn.embedding_lookup(self.Embedding,self.input_x)  #[None,sequence_length, embed_size]
-        input_x_embeded=tf.multiply(input_x_embeded,tf.sqrt(tf.cast(self.d_model,dtype=tf.float32)))
-        input_mask=tf.get_variable("input_mask",[self.sequence_length,1],initializer=self.initializer)
-        input_x_embeded=tf.add(input_x_embeded,input_mask) 
+        input_x_embeded = tf.multiply(input_x_embeded,tf.sqrt(tf.cast(self.d_model,dtype=tf.float32)))
+        input_x_embeded = tf.expand_dims(input_x_embeded, -1)
+        pooled_outputs = []
+        for i, filter_size in enumerate(self.filter_sizes):
+            with tf.name_scope("conv_maxpool-%s" % filter_size):
+                filter_shape = [filter_size, self.embedding_size, 1, self.num_filters]
+                W = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.1), name="W")
+                b = tf.Variable(tf.constant(0.1, shape=[self.num_filters]), name="b")
+                conv = tf.nn.conv2d(
+                    input_x_embeded,
+                    W,
+                    strides= [1, 1, 1, 1],
+                    padding="VALID",
+                    name="conv")
+                h = tf.nn.relu(tf.nn.bias_add(conv, b), name="relu")
+                pooled = tf.nn.max_pool(
+                    h,
+                    ksize=[1, self.sequence_length - filter_size + 1, 1, 1],
+                    strides=[1, 1, 1, 1],
+                    padding="VALID",
+                    name="pool")
+                pooled_outputs.append(pooled)           
 
-        encoder_class=Encoder(self.d_model,self.d_k,self.d_v,self.sequence_length,self.h,self.batch_size,self.num_layer,input_x_embeded,input_x_embeded,dropout_keep_prob=self.dropout_keep_prob,use_residual_conn=self.use_residual_conn)
-        Q_encoded,K_encoded = encoder_class.encoder_fn() #K_v_encoder
+        num_filters_total = self.num_filters * len(self.filter_sizes)
+        self.h_pool = tf.concat(pooled_outputs, 3)
+        self.h_pool_flat = tf.reshape(self.h_pool, [-1, num_filters_total])
+        
+        with tf.name_scope("dropout"):
+            self.h_drop = tf.nn.dropout(self.h_pool_flat, self.dropout_keep_prob)
 
-        Q_encoded=tf.reshape(Q_encoded,shape=(self.batch_size,-1)) #[batch_size,sequence_length*d_model]
-        with tf.variable_scope("output"):
-            logits = tf.matmul(Q_encoded, self.W_projection) + self.b_projection #logits shape:[batch_size*decoder_sent_length,self.num_classes]
+        with tf.name_scope("output"):
+            W = tf.get_variable(
+                "W",
+                shape=[num_filters_total, self.num_classes],
+                initializer=tf.contrib.layers.xavier_initializer())
+            b = tf.Variable(tf.constant(0.1, shape=[self.num_classes]), name="b")
+            logits = tf.nn.xw_plus_b(self.h_drop, W, b, name="logits") #logits shape:[batch_size*decoder_sent_length,self.num_classes]
         print("logits:",logits)
         return logits
 
@@ -224,11 +226,6 @@ class Transformer(BaseClass):
             loss = loss + l2_losses
         return loss
 
-    def compare_loss(self):
-        with tf.name_scope("compare_loss"):
-            losses = tf.add(tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=self.compare_logits, labels=self.input_y_label)), tf.reduce_sum(tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES))) 
-        return losses
-
     def train(self):
         learning_rate = tf.train.exponential_decay(self.learning_rate, self.global_step, self.decay_steps,self.decay_rate, staircase=True)
         self.learning_rate_=learning_rate
@@ -241,12 +238,5 @@ class Transformer(BaseClass):
             self.Embedding = tf.Variable(tf.constant(0.0, shape=[self.vocab_size, self.embed_size]),trainable=False, name="Embedding")
             self.embedding_placeholder = tf.placeholder(tf.float32, shape=[self.vocab_size, self.embed_size])
             self.embedding_init = self.Embedding.assign(self.embedding_placeholder)
-            self.W_projection = tf.get_variable("W_projection", shape=[self.sequence_length*self.d_model, self.num_classes],initializer=self.initializer)  # [embed_size,label_size]
-            self.b_projection = tf.get_variable("b_projection", shape=[self.num_classes])
 
-    def get_mask(self,sequence_length):
-        lower_triangle = tf.matrix_band_part(tf.ones([sequence_length, sequence_length]), -1, 0)
-        result = -1e9 * (1.0 - lower_triangle)
-        print("get_mask==>result:", result)
-        return result
 

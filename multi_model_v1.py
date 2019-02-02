@@ -45,8 +45,7 @@ class Transformer(BaseClass):
         self.use_residual_conn=use_residual_conn
 
         self.instantiate_weights()
-        self.logits = self.inference()
-        self.logits = tf.layers.dense(tf.concat([self.logits, self.get_compare_logits()], 1), units=self.num_classes) #logits shape:[batch_size,self.num_classes]
+        self.logits = tf.layers.dense(tf.concat([self.inference(), self.get_compare_logits()], 1), units=self.num_classes) #logits shape:[batch_size,self.num_classes]
         self.return_logits = tf.nn.softmax(self.logits)
 
         self.predictions = tf.argmax(self.logits, axis=1, name="predictions")
@@ -192,8 +191,14 @@ class Transformer(BaseClass):
         ##    tf.reduce_sum(tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES)), name="cost")
         ##return cost
         #return estimation
-        output_features = tf.concat([self.features, tf.stack(sims, axis=1)], axis=1, name="output_features")
-        return output_features
+        
+        # s1
+        #output_features = tf.concat([self.features, tf.stack(sims, axis=1)], axis=1, name="output_features")
+        #return output_features
+        
+        # s2
+        estimation = tf.layers.dense(tf.stack(sims, axis=1), units=self.num_classes) #logits shape:[batch_size,self.num_classes]
+        return estimation
 
     def inference(self):
         input_x_embeded = tf.nn.embedding_lookup(self.Embedding,self.input_x)  #[None,sequence_length, embed_size]

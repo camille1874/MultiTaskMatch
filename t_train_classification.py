@@ -2,8 +2,8 @@
 import sys
 import tensorflow as tf
 import numpy as np
-from a2_transformer_classification import  Transformer
-from a2_data_util import load_data_multilabel_new,create_vocabulary
+from transformer_classification import  Transformer
+from t_data_util import load_data_multilabel_new,create_vocabulary
 from tflearn.data_utils import to_categorical, pad_sequences
 import os,math
 import pickle

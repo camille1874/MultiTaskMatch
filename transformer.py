@@ -3,9 +3,9 @@ import tensorflow as tf
 import numpy as np
 import random
 import copy
-from a2_base_model import BaseClass
-from a2_encoder import Encoder
-from a2_decoder import Decoder
+from base_model import BaseClass
+from encoder import Encoder
+from decoder import Decoder
 import os
 """
 Transformer: perform sequence to sequence solely on attention mechanism. do it fast and better.

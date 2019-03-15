@@ -2,7 +2,7 @@
 import sys
 import tensorflow as tf
 import numpy as np
-from multi_model_v1 import  Transformer
+from multi_model_v1_2 import  Transformer
 from data_util import load_data_multilabel_new,create_vocabulary
 from preprocess_compare import Word2Vec, WikiQA, MSRP
 from tflearn.data_utils import to_categorical, pad_sequences
@@ -21,7 +21,7 @@ tf.app.flags.DEFINE_string("ckpt_dir","../checkpoint_transformer_classification/
 tf.app.flags.DEFINE_integer("sequence_length",80,"max sentence length")
 tf.app.flags.DEFINE_integer("embed_size",300,"embedding size")
 tf.app.flags.DEFINE_boolean("is_training",True,"is training.true:tranining,false:testing/inference")
-tf.app.flags.DEFINE_integer("num_epochs",25,"number of epochs to run.")
+tf.app.flags.DEFINE_integer("num_epochs",50,"number of epochs to run.")
 tf.app.flags.DEFINE_integer("validate_every", 1, "Validate every validate_every epochs.") #每10轮做一次验证
 tf.app.flags.DEFINE_integer("validate_step", 200, "how many step to validate.") #1500做一次检验
 tf.app.flags.DEFINE_boolean("use_embedding",True,"whether to use embedding or not.")

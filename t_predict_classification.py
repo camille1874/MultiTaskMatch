@@ -1,7 +1,7 @@
 import tensorflow as tf
 import numpy as np
-from a2_transformer_classification import  Transformer
-from a2_data_util import load_data_predict,load_data_predict_y,load_final_test_data,create_vocabulary
+from transformer_classification import  Transformer
+from t_data_util import load_data_predict,load_data_predict_y,load_final_test_data,create_vocabulary
 from tflearn.data_utils import pad_sequences #to_categorical
 import os
 import codecs

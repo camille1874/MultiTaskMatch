@@ -3,8 +3,8 @@ import tensorflow as tf
 import numpy as np
 import random
 import copy
-from a2_base_model import BaseClass
-from a2_encoder import Encoder
+from base_model import BaseClass
+from encoder import Encoder
 import os
 class Transformer(BaseClass):
     def __init__(self, num_classes, learning_rate, batch_size, decay_steps, decay_rate, sequence_length,

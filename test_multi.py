@@ -1,6 +1,6 @@
 import tensorflow as tf
 import numpy as np
-from multi_model_v1 import  Transformer
+from multi_model_v1_2 import  Transformer
 from data_util import load_data_predict,load_data_predict_y,load_final_test_data,create_vocabulary
 from tflearn.data_utils import pad_sequences #to_categorical
 import os

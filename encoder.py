@@ -8,7 +8,7 @@ for each sublayer. use LayerNorm(x+Sublayer(x)). all dimension=512.
 """
 #TODO LAYER NORMALIZATION
 import tensorflow as tf
-from a2_base_model import BaseClass
+from base_model import BaseClass
 import time
 class Encoder(BaseClass):
     def __init__(self,d_model,d_k,d_v,sequence_length,h,batch_size,num_layer,Q,K_s,type='encoder',mask=None,dropout_keep_prob=None,use_residual_conn=True):

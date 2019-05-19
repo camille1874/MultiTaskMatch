@@ -2,9 +2,9 @@
 import sys
 import tensorflow as tf
 import numpy as np
-from multi_model_v2 import TextCNN
+from multi_model_v2_2 import TextCNN
 from data_util import load_data_multilabel_new,create_vocabulary
-from preprocess_compare import Word2Vec, WikiQA, MSRP
+from preprocess_compare import Word2Vec, WikiQA
 from tflearn.data_utils import to_categorical, pad_sequences
 import os,math
 import pickle
@@ -17,7 +17,7 @@ tf.app.flags.DEFINE_float("learning_rate",0.01,"learning rate")
 tf.app.flags.DEFINE_integer("batch_size", 64, "Batch size for training/evaluating.") #批处理的大小 32-->128-->512
 tf.app.flags.DEFINE_integer("decay_steps", 6000, "how many steps before decay learning rate.") #6000批处理的大小 32-->128
 tf.app.flags.DEFINE_float("decay_rate", 0.001, "Rate of decay for learning rate.") #0.87一次衰减多少
-tf.app.flags.DEFINE_string("ckpt_dir","../checkpoint_transformer_classification/","checkpoint location for the model")
+tf.app.flags.DEFINE_string("ckpt_dir","../checkpoint_wikiqa/","checkpoint location for the model")
 tf.app.flags.DEFINE_integer("sequence_length",80,"max sentence length")
 tf.app.flags.DEFINE_integer("embed_size",300,"embedding size")
 tf.app.flags.DEFINE_boolean("is_training",True,"is training.true:tranining,false:testing/inference")

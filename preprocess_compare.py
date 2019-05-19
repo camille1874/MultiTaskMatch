@@ -70,15 +70,15 @@ class Data():
 
 class MSRP(Data):
     def open_file(self, mode, parsing_method="NLTK"):
-        with codecs.open("../data/MSRP_Corpus/msr_paraphrase_" + mode + ".txt", "r", encoding="utf-8") as f:
+        with codecs.open("../data/MSRP_Corpus/msr_paraphrase_" + mode + "-new.txt", "r", encoding="utf-8") as f:
             f.readline()
 
             for line in f:
                 items = line[:-1].split("\t")
                 label = int(items[0])
                 if parsing_method == "NLTK":
-                    s1 = nltk.word_tokenize(items[3])
-                    s2 = nltk.word_tokenize(items[4])
+                    s1 = nltk.word_tokenize(items[3])[:40]
+                    s2 = nltk.word_tokenize(items[4])[:40]
                 else:
                     s1 = items[3].strip().split()
                     s2 = items[4].strip().split()
@@ -103,7 +103,6 @@ class MSRP(Data):
                 local_max_len = max(len(s1), len(s2))
                 if local_max_len > self.max_len:
                     self.max_len = local_max_len
-
         self.data_size = len(self.s1s)
         self.num_features = len(self.features[0])
 

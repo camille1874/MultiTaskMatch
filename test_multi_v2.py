@@ -1,11 +1,11 @@
 import tensorflow as tf
 import numpy as np
-from multi_model_v2 import  TextCNN
+from multi_model_v2_2 import  TextCNN
 from data_util import load_data_predict,load_data_predict_y,load_final_test_data,create_vocabulary
 from tflearn.data_utils import pad_sequences #to_categorical
 import os
 import codecs
-from preprocess_abcnn import Word2Vec, MSRP, WikiQA
+from preprocess_compare import Word2Vec, WikiQA
 from ABCNN_raw import ABCNN
 
 #configuration
@@ -15,7 +15,8 @@ tf.app.flags.DEFINE_float("learning_rate",0.01,"learning rate")
 tf.app.flags.DEFINE_integer("batch_size", 64, "Batch size for training/evaluating.") #批处理的大小 32-->128 #16
 tf.app.flags.DEFINE_integer("decay_steps", 6000, "how many steps before decay learning rate.") #6000批处理的大小 32-->128
 tf.app.flags.DEFINE_float("decay_rate", 0.001, "Rate of decay for learning rate.") #0.87一次衰减多少
-tf.app.flags.DEFINE_string("ckpt_dir","../checkpoint_transformer_classification/","checkpoint location for the model")
+#tf.app.flags.DEFINE_string("ckpt_dir","../checkpoint_wikiqa/","checkpoint location for the model")
+tf.app.flags.DEFINE_string("ckpt_dir","./record_multi/0213_epoch50_lossconcat_precompare","checkpoint location for the model")
 tf.app.flags.DEFINE_integer("sequence_length",80,"max sentence length") #100-->25
 tf.app.flags.DEFINE_integer("embed_size",300,"embedding size")
 tf.app.flags.DEFINE_boolean("is_training",False,"is traning.true:tranining,false:testing/inference")
@@ -24,7 +25,7 @@ tf.app.flags.DEFINE_boolean("is_training",False,"is traning.true:tranining,false
 tf.app.flags.DEFINE_string("word2vec_model_path","../data/GoogleNews-vectors-negative300.bin","word2vec's vocabulary and vectors") 
 tf.app.flags.DEFINE_boolean("multi_label_flag",False,"use multi label or single label.") #set this false. becase we are using it is a sequence of token here.
 tf.app.flags.DEFINE_float("l2_lambda", 0.0001, "l2 regularization")
-tf.app.flags.DEFINE_string("predict_target_file","../checkpoint_transformer_classification/result_transformer_classification.csv","target file path for final prediction")
+tf.app.flags.DEFINE_string("predict_target_file","../checkpoint_wikiqa/result_wikiqa.csv","target file path for final prediction")
 tf.app.flags.DEFINE_string("predict_source_file",'../data/wikiqa-test-x.txt',"target file path for final prediction") 
 tf.app.flags.DEFINE_string("predict_source_file_y",'../data/wikiqa-test-y.txt',"target file path for final prediction") 
 tf.app.flags.DEFINE_integer("d_model", "300", "hidden size")
@@ -92,6 +93,7 @@ def main(_):
             else:                
                 answers[question_id_list[i]] = [(testX[i], testY2[i], prob)]
             predict_target_file_f.write(str(logits[i]) + "\n")
+        total_q = len(answers)
         for i in answers.keys():
             p, AP = 0, 0
             MRR_check = False
@@ -103,11 +105,11 @@ def main(_):
                         MRR_check = True
                     p += 1
                     AP += p / (idx + 1)
-
-            AP /= p
-            MAP += AP
-        
-        total_q = len(answers.keys()) 
+            if p:
+                AP /= p
+                MAP += AP
+            else:
+                total_q -= 1
         MAP /= total_q
         MRR /= total_q
         print("MAP", MAP, ",MRR", MRR)

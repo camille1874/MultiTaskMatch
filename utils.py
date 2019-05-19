@@ -1,5 +1,10 @@
 # -*- encoding:utf-8 -*-
 import re
+from bert_serving.client import BertClient
+
+def get_encoding(lists):
+    bc = BertClient()
+    return bc.encode(lists)
 
 def clean_str(string):
     string = re.sub(r"[(\-lrb\-)(\-rrb\-)]", "", string)
@@ -38,4 +43,4 @@ def edit_dis(s1, s2):
                 dis[i][j] = min(dis[i - 1][j - 1], min(dis[i - 1][j], dis[i][j - 1])) + 1
     return dis[-1][-1] / max(len1, len2)
 
-#print(edit_dis("which position does sb play in baseball games", "position/play/baseball")) 0.54data_type + "-" + model_type + "-" + str(num_layers) + postpix
+#print(edit_dis("which position does sb play in baseball games", "position/play/baseball")) 0.54

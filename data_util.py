@@ -53,7 +53,7 @@ def sort_by_value(d):
     return [ backitems[i][1] for i in range(0,len(backitems))]
 
 
-def load_data_multilabel_new(vocabulary_word2index,valid_portion=0.05,training_data_path='../wikiqa-train.txt',max_length=50):  # n_words=100000,
+def load_data_multilabel_new(vocabulary_word2index,training_data_path='../wikiqa-train.txt',max_length=50):  # n_words=100000,
     """
     input: a file path
     :return: train, test, valid. where train=(trainX, trainY). where
@@ -98,10 +98,8 @@ def load_data_multilabel_new(vocabulary_word2index,valid_portion=0.05,training_d
     # 4.split to train,test and valid data
     number_examples = len(X)
     print("number_examples:",number_examples) #
-    train = (X[0:int((1 - valid_portion) * number_examples)], Y[0:int((1 - valid_portion) * number_examples)])
-    test = (X[int((1 - valid_portion) * number_examples):], Y[int((1 - valid_portion) * number_examples):])
     print("load_data.ended...")
-    return train, test, test
+    return (X, Y)
 
 
  # 将一句话转化为(uigram,bigram,trigram)后的字符串

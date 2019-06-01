@@ -18,7 +18,8 @@ tf.app.flags.DEFINE_integer("batch_size", 64, "Batch size for training/evaluatin
 tf.app.flags.DEFINE_integer("decay_steps", 6000, "how many steps before decay learning rate.") #6000批处理的大小 32-->128
 tf.app.flags.DEFINE_float("decay_rate", 0.001, "Rate of decay for learning rate.") #0.87一次衰减多少
 tf.app.flags.DEFINE_string("ckpt_dir","../checkpoint_wikiqa/","checkpoint location for the model")
-tf.app.flags.DEFINE_integer("sequence_length",80,"max sentence length")
+#tf.app.flags.DEFINE_integer("sequence_length",80,"max sentence length")
+tf.app.flags.DEFINE_integer("sequence_length",100,"max sentence length")
 tf.app.flags.DEFINE_integer("embed_size",300,"embedding size")
 tf.app.flags.DEFINE_boolean("is_training",True,"is training.true:tranining,false:testing/inference")
 tf.app.flags.DEFINE_integer("num_epochs",50,"number of epochs to run.")
@@ -27,14 +28,16 @@ tf.app.flags.DEFINE_integer("validate_step", 200, "how many step to validate.") 
 tf.app.flags.DEFINE_boolean("use_embedding",True,"whether to use embedding or not.")
 #tf.app.flags.DEFINE_string("cache_path","text_cnn_checkpoint/data_cache.pik","checkpoint location for the model")
 #train-zhihu4-only-title-all.txt
-tf.app.flags.DEFINE_string("training_data_path","../data/wikiqa-train.txt","path of training data.") #test-zhihu4-only-title-all.txt.one record like this:'w183364 w11 w3484 w3125 w155457 w111 __label__-2086863971949478092'
+tf.app.flags.DEFINE_string("training_data_path","../data/wikiqa-train0.txt","path of training data.") 
+#tf.app.flags.DEFINE_string("training_data_path","../data/wikiqa-train-processed.txt","path of training data.") 
 tf.app.flags.DEFINE_string("word2vec_model_path","../data/GoogleNews-vectors-negative300.bin","word2vec's vocabulary and vectors") 
 tf.app.flags.DEFINE_float("l2_lambda", 0.0001, "l2 regularization")
 
-tf.app.flags.DEFINE_integer("max_len_compare",40,"max compare length")
+tf.app.flags.DEFINE_integer("max_len_compare",50,"max compare length")
 tf.app.flags.DEFINE_integer("d_model",300,"model hidden size")
-tf.app.flags.DEFINE_string("filter_sizes", "2,3,4,5", "Comma-separated filter sizes")
-tf.app.flags.DEFINE_integer("num_filters", 128, "Number of filters per filter size")
+tf.app.flags.DEFINE_string("filter_sizes", "3", "Comma-separated filter sizes")
+#tf.app.flags.DEFINE_integer("num_filters", 128, "Number of filters per filter size")
+tf.app.flags.DEFINE_integer("num_filters", 1, "Number of filters per filter size")
 def main(_):
     #1.load data(X:list of lint,y:int).
     #if os.path.exists(FLAGS.cache_path):  # 如果文件系统中存在，那么加载故事（词汇表索引化的）
@@ -43,22 +46,19 @@ def main(_):
     #        vocab_size=len(vocabulary_index2word)
     #else:
     if 1==1:
-        trainX, trainY, testX, testY = None, None, None, None
+        trainX, trainY = None, None
         vocabulary_word2index,vocabulary_index2word = create_vocabulary(word2vec_model_path=FLAGS.word2vec_model_path,name_scope="transformer_classification") 
         vocab_size = len(vocabulary_word2index)
         print("transformer.vocab_size:",vocab_size)
-        train,test,_=load_data_multilabel_new(vocabulary_word2index,training_data_path=FLAGS.training_data_path)
+        train=load_data_multilabel_new(vocabulary_word2index,training_data_path=FLAGS.training_data_path)
 
         compare_train_data = WikiQA(word2vec=Word2Vec(), max_len=FLAGS.max_len_compare)
         compare_train_data.open_file(mode="train")
         compare_test_data = WikiQA(word2vec=Word2Vec(), max_len=FLAGS.max_len_compare)
-        compare_test_data.open_file(mode="valid")
 
         trainX, trainY, = train
-        testX, testY = test
 
         trainX = pad_sequences(trainX, maxlen=FLAGS.sequence_length, value=0.)  
-        testX = pad_sequences(testX, maxlen=FLAGS.sequence_length, value=0.)
     config=tf.ConfigProto()
     config.gpu_options.allow_growth=True
     with tf.Session(config=config) as sess:
@@ -98,33 +98,10 @@ def main(_):
                 loss,counter,acc=loss+curr_loss,counter+1,acc+curr_acc
                 if counter %50==0:
                     print("transformer.classification==>Epoch %d\tBatch %d\tTrain Loss:%.3f\tTrain Accuracy:%.3f" %(epoch,counter,loss/float(counter),acc/float(counter))) #tTrain Accuracy:%.3f---》acc/float(counter)
-                ##VALIDATION VALIDATION VALIDATION PART######################################################################################################
-                if FLAGS.batch_size!=0 and (start%(FLAGS.validate_step*FLAGS.batch_size)==0):
-                    eval_loss, eval_acc = do_eval(sess, model, testX, testY, compare_test_data, batch_size)
-                    print("transformer.classification.validation.part. previous_eval_loss:", previous_eval_loss,";current_eval_loss:",eval_loss)
-                    if eval_loss > previous_eval_loss: #if loss is not decreasing
-                        # reduce the learning rate by a factor of 0.5
-                        print("transformer.classification.==>validation.part.going to reduce the learning rate.")
-                        learning_rate1 = sess.run(model.learning_rate)
-                        lrr=sess.run([model.learning_rate_decay_half_op])
-                        learning_rate2 = sess.run(model.learning_rate)
-                        print("transformer.classification==>validation.part.learning_rate1:", learning_rate1, " ;learning_rate2:",learning_rate2)
-                    #print("HierAtten==>Epoch %d Validation Loss:%.3f\tValidation Accuracy: %.3f" % (epoch, eval_loss, eval_acc))
-                    else:# loss is decreasing
-                        if eval_loss<best_eval_loss:
-                            print("transformer.classification==>going to save the model.eval_loss:",eval_loss,";best_eval_loss:",best_eval_loss)
-                            # save model to checkpoint
-                            save_path = FLAGS.ckpt_dir + "model.ckpt"
-                            saver.save(sess, save_path, global_step=epoch)
-                            best_eval_loss=eval_loss
-                    previous_eval_loss = eval_loss
-                    compare_test_data.reset_index()
-                ##VALIDATION VALIDATION VALIDATION PART######################################################################################################
-
-            #epoch increment
             print("going to increment epoch counter....")
             sess.run(model.epoch_increment)
-
+        save_path = FLAGS.ckpt_dir + "model.ckpt"
+        saver.save(sess, save_path, global_step=epoch)
 
 def assign_pretrained_word_embedding(sess,vocabulary_index2word,vocab_size,model,word2vec_model_path=None):
     print("using pre-trained word emebedding.started.word2vec_model_path:",word2vec_model_path)
@@ -157,24 +134,6 @@ def assign_pretrained_word_embedding(sess,vocabulary_index2word,vocab_size,model
     print("word. exists embedding:", count_exist, " ;word not exist embedding:", count_not_exist)
     print("using pre-trained word emebedding.ended...")
 
-# 在验证集上做验证，报告损失、精确度
-def do_eval(sess,model,evalX,evalY,compare_test_data,batch_size,eval_decoder_input=None):
-    #ii=0
-    number_examples=len(evalX)
-    print(number_examples)
-    eval_loss,eval_acc,eval_counter=0.0,0.0,0
-    for start,end in zip(range(0,number_examples,batch_size),range(batch_size,number_examples,batch_size)):
-        batch_x1, batch_x2, _, batch_features = compare_test_data.next_batch(batch_size=end - start)
-        feed_dict = {model.input_x: evalX[start:end], model.dropout_keep_prob: 1.0, model.x1: batch_x1, model.x2: batch_x2, model.features:batch_features}
-        feed_dict[model.input_y_label] = evalY[start:end]
-        curr_eval_loss, logits,curr_eval_acc,pred= sess.run([model.loss_val,model.logits,model.accuracy,model.predictions],feed_dict)#curr_eval_acc--->textCNN.accuracy
-        eval_loss,eval_acc,eval_counter=eval_loss+curr_eval_loss,eval_acc+curr_eval_acc,eval_counter+1
-        #if ii<20:
-            #print("1.evalX[start:end]:",evalX[start:end])
-            #print("2.evalY[start:end]:", evalY[start:end])
-            #print("3.pred:",pred)
-            #ii=ii+1
-    return eval_loss/float(eval_counter),eval_acc/float(eval_counter)
 
 if __name__ == "__main__":
     tf.app.run()

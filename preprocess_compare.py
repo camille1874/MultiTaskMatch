@@ -3,6 +3,7 @@ import nltk
 import gensim
 import codecs
 from data_helpers import clean_str
+import utils
 
 class Word2Vec():
     def __init__(self):
@@ -109,20 +110,35 @@ class MSRP(Data):
 
 class WikiQA(Data):
     def open_file(self, mode):
-        with codecs.open("../data/WikiQA_Corpus/WikiQA-" + mode + "-new.txt", "r", encoding="utf-8") as f:
+        #with codecs.open("../data/WikiQA_Corpus/WikiQA-" + mode + "-new.txt", "r", encoding="utf-8") as f:
+        with codecs.open("../data/WikiQA_Corpus/WikiQA-" + mode + "-processed.txt", "r", encoding="utf-8") as f:
             stopwords = nltk.corpus.stopwords.words("english")
 
             for line in f:
                 items = line.split("\t")
+                
                 s1 = items[0].lower().split()
-                s2 = items[1].lower().split()[:40]
-                label = int(items[2])
+                s2 = items[2].lower().split()[:50]
+                #s1 = (items[0] + items[1]).lower().split()
+                #s2 = (items[2] + items[3]).lower().split()[:50]
+                label = int(items[4])
+                entity1 = items[1].strip().split("::")
+                entity2 = items[3].strip().split("::")
+                entity_score = 0
+                for e1 in entity1:
+                    for e2 in entity2:
+                        entity_score += utils.edit_dis(e1, e2) 
+                
+                #s1 = items[0].lower().split()
+                #s2 = items[1].lower().split()[:50]
+                #label = int(items[2])
 
                 self.s1s.append(s1)
                 self.s2s.append(s2)
                 self.labels.append(label)
                 word_cnt = len([word for word in s1 if (word not in stopwords) and (word in s2)])
-                self.features.append([len(s1), len(s2), word_cnt])
+                self.features.append([len(s1), len(s2), word_cnt, entity_score])
+                #self.features.append([len(s1), len(s2), word_cnt])
 
                 local_max_len = max(len(s1), len(s2))
                 if local_max_len > self.max_len:

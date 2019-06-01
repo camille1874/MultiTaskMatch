@@ -180,38 +180,59 @@ class TextCNN(object):
         input_x_embeded = tf.nn.embedding_lookup(self.Embedding,self.input_x)  #[None,sequence_length, embed_size]
         input_x_embeded = tf.multiply(input_x_embeded,tf.sqrt(tf.cast(self.d_model,dtype=tf.float32)))
         input_x_embeded = tf.expand_dims(input_x_embeded, -1)
+        layer_input = input_x_embeded
         pooled_outputs = []
-        for i, filter_size in enumerate(self.filter_sizes):
-            with tf.name_scope("conv_maxpool-%s" % filter_size):
-                filter_shape = [filter_size, self.embedding_size, 1, self.num_filters]
-                W = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.1), name="W")
-                b = tf.Variable(tf.constant(0.1, shape=[self.num_filters]), name="b")
-                conv = tf.nn.conv2d(
-                    input_x_embeded,
-                    W,
-                    strides= [1, 1, 1, 1],
-                    padding="VALID",
-                    name="conv")
-                h = tf.nn.relu(tf.nn.bias_add(conv, b), name="relu")
-                pooled = tf.nn.max_pool(
-                    h,
-                    ksize=[1, self.sequence_length - filter_size + 1, 1, 1],
-                    strides=[1, 1, 1, 1],
-                    padding="VALID",
-                    name="pool")
-                pooled_outputs.append(pooled)           
-
+        for layer in range(4):
+            n, h, w, c = layer_input.shape.as_list()
+            for i, filter_size in enumerate(self.filter_sizes):
+                with tf.name_scope("conv_maxpool-%s" % filter_size):
+                    filter_shape = [filter_size, h // 2, 1, self.num_filters]
+                    W = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.1), name="W")
+                    #b = tf.Variable(tf.constant(0.1, shape=[self.num_filters]), name="b")
+                    #conv = tf.nn.conv2d(
+                    #    input_x_embeded,
+                    #    W,
+                    #    strides= [1, 1, 1, 1],
+                    #    padding="VALID",
+                    #    name="conv")
+                    
+                    conv = tf.nn.atrous_conv2d(
+                        value=input_x_embeded,
+                        filters=W,
+                        rate=layer + 1,
+                        padding="VALID" 
+                    )
+                    W = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.1), name="W")
+                    #h = tf.nn.relu(tf.nn.bias_add(conv, b), name="relu")
+                    #pooled = tf.nn.max_pool(
+                    #    h,
+                    #    ksize=[1, self.sequence_length - filter_size + 1, 1, 1],
+                    #    strides=[1, 1, 1, 1],
+                    #    padding="VALID",
+                    #    name="pool")
+                    #print(pooled.shape)
+                    #pooled_outputs.append(pooled)           
+                    layer_input = conv
+                    print("#CONV" * 50)
+                    print(conv.shape)
+        pooled_outputs = conv
         num_filters_total = self.num_filters * len(self.filter_sizes)
         self.h_pool = tf.concat(pooled_outputs, 3)
-        self.h_pool_flat = tf.reshape(self.h_pool, [-1, num_filters_total])
-        
+        print("#" * 50)
+        print(self.h_pool.shape)
+        n, h, w, c = self.h_pool.shape.as_list()
+        #self.h_pool_flat = tf.reshape(self.h_pool, [-1, num_filters_total])
+        self.h_pool_flat = tf.reshape(self.h_pool, [self.batch_size, -1])
+        print("#" * 50)
+        print(self.h_pool_flat.shape)
         with tf.name_scope("dropout"):
             self.h_drop = tf.nn.dropout(self.h_pool_flat, self.dropout_keep_prob)
-
+         
         with tf.name_scope("output"):
             W = tf.get_variable(
                 "W",
-                shape=[num_filters_total, self.num_classes],
+                #shape=[num_filters_total, self.num_classes],
+                shape=[self.h_pool_flat.shape[1], self.num_classes],
                 initializer=tf.contrib.layers.xavier_initializer())
             b = tf.Variable(tf.constant(0.1, shape=[self.num_classes]), name="b")
             logits = tf.nn.xw_plus_b(self.h_drop, W, b, name="logits") #logits shape:[batch_size*decoder_sent_length,self.num_classes]
